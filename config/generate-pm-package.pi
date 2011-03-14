@@ -1,0 +1,16 @@
+  {
+      main_script_name => 'generate-pm-package',
+      file_names => [qw(
+          script/generate-pm-package.pl
+          config/generate-pm-package.pi
+      )],
+      req_modules => {
+          'Path::Class' => 0,
+          'Pod::Select' => 0,
+          'Pod::Text' => 0,
+          'Pod::Usage' => 0,
+          'File::Temp' => 0,
+          'File::Copy' => 0,
+          'Data::Dumper' => 0,
+      },
+  };

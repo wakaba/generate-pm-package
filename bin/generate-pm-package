@@ -1,0 +1,274 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+our $VERSION = '1.1';
+use Path::Class;
+use Pod::Select;
+use Pod::Text;
+use Pod::Usage;
+use File::Temp qw(tempdir);
+use File::Copy;
+use Getopt::Long;
+use Data::Dumper;
+
+sub extract_pod_section_as_text ($$) {
+    my ($pod, $nameref) = @_;
+
+    my $pod_section = '';
+    for my $name (@$nameref) {
+        open my $pod_file, '<', \$pod;
+        open my $pod_section_out_file, '>', \$pod_section;
+        
+        my $select = Pod::Select->new;
+        $select->select($name);
+        $select->parse_from_filehandle($pod_file, $pod_section_out_file);
+        
+        close $pod_section_out_file;
+        last if length $pod_section;
+    }
+    return $pod_section if not length $pod_section;
+    
+    $pod_section =~ s/^=head1.*/=pod/gm;
+    open my $pod_section_in_file, '<', \$pod_section;
+    
+    my $pod_text = '';
+    open my $pod_text_file, '>', \$pod_text;
+    my $text = Pod::Text->new;
+    $text->parse_from_filehandle($pod_section_in_file, $pod_text_file);
+    close $pod_text_file;
+
+    $pod_text =~ s/\s*$//g;
+    return $pod_text;
+}
+
+sub put_file ($$) {
+    my ($file_f, $content) = @_;
+    warn qq[$file_f\n];
+    my $fh = $file_f->openw;
+    print $fh $content;
+    close $fh;
+}
+
+my $mode = 'dist';
+GetOptions(
+    'copy-tree' => sub { $mode = 'copy_tree' },
+) or pod2usage(2);
+
+my $pack_info_file_name = shift or pod2usage(2);
+my $dest_directory = shift or pod2usage(2);
+my $pack_info = do $pack_info_file_name or die $@;
+
+my @dist_file = map { file($_) } @{$pack_info->{file_names} or []};
+my $req_modules = $pack_info->{req_modules} || {};
+my $t_req_modules = $pack_info->{t_req_modules} || {};
+
+my $prereq_pms = {%$req_modules};
+my $build_requires = {%$t_req_modules};
+
+my $perl_package_name;
+my $dist_package_name;
+my $module_version;
+my $pod;
+my $pod_file_name;
+my $make_pms = {};
+if ($pack_info->{main_module_name}) {
+    $perl_package_name = $pack_info->{main_module_name};
+    $dist_package_name = $perl_package_name;
+    $dist_package_name =~ s/::/-/g;
+    my $pm_file_name = 'lib/' . $perl_package_name . '.pm';
+    $pm_file_name =~ s[::][/]g;
+    $pod_file_name = $pm_file_name;
+    $pod_file_name =~ s/\.pm$/.pod/;
+    $pod_file_name = $pm_file_name unless -f $pod_file_name;
+    my $pm = file($pm_file_name)->slurp;
+    $pod = file($pod_file_name)->slurp;
+    if ($pm =~ /(?:^|\x0A)\s*our\s*\$VERSION\s*=\s*([^;]*;)/) {
+        $module_version = eval $1 or die $@;
+    } else {
+        die "$0: $pm_file_name: No \$VERSION\n";
+    }
+} elsif ($pack_info->{main_script_name}) {
+    $dist_package_name = $pack_info->{main_script_name};
+    $perl_package_name = $dist_package_name;
+    my $pl_file_name = 'script/' . $dist_package_name . '.pl';
+    $pod_file_name = $pl_file_name;
+    $make_pms->{"bin/$dist_package_name"} = '$(INST_SCRIPT)/' . $dist_package_name;
+    my $pl = file($pl_file_name)->slurp;
+    $pod = file($pod_file_name)->slurp;
+    if ($pl =~ /(?:^|\x0A)\s*our\s*\$VERSION\s*=\s*([^;]*;)/) {
+        $module_version = eval $1 or die $@;
+    } else {
+        die "$0: $pl_file_name: No \$VERSION\n";
+    }
+} else {
+    die "$0: $pack_info_file_name: No |main_module_name| or |main_script_name|\n";
+}
+
+my $root_d = dir($mode eq 'copy_tree' ? $dest_directory : tempdir);
+
+{
+    for my $source_f (@dist_file) {
+        my $dest_file_name = $source_f->stringify;
+        $dest_file_name =~ s[\bscript/][bin/];
+        $dest_file_name =~ s/\.pl$//;
+        my $dest_f = $root_d->file($dest_file_name);
+        $dest_f->dir->mkpath;
+        warn "$dest_f\n";
+        copy $source_f->stringify => $dest_f->stringify;
+        system 'chmod', '+x', $dest_f->stringify;
+    }
+}
+
+exit if $mode eq 'copy_tree';
+
+my $authors_text = extract_pod_section_as_text($pod, ['AUTHORS', 'AUTHOR']);
+{
+    my $desc_text = extract_pod_section_as_text($pod, ['DESCRIPTION']);
+    my $authors_heading = ($authors_text =~ tr/</</) > 1 ? 'AUTHORS' : 'AUTHOR';
+    my $license_text = extract_pod_section_as_text($pod, ['LICENSE']);
+    
+    my $caption = "$dist_package_name Version $module_version";
+    my $caption_u = '=' x length $caption;
+    
+    put_file $root_d->file('README'), qq[$caption
+$caption_u
+
+$desc_text
+
+INSTALLATION
+
+    To install this module type the following:
+
+        perl Makefile.PL
+        make
+        make test
+        make install
+
+$authors_heading
+
+$authors_text
+
+LICENSE
+
+$license_text
+
+];
+}
+
+{
+    my $history_text = extract_pod_section_as_text($pod, ['HISTORY']);
+    
+    put_file $root_d->file('Changes'), qq[$dist_package_name Revision History
+
+$history_text
+];
+}
+
+{
+    my $author = $authors_text;
+    $author =~ s/(?<=>)\.\s*/, /g;
+    $author =~ s/,\s*$//;
+    $author =~ s/\s+/ /g;
+    $author =~ s/^ //;
+    $author =~ s/ $//;
+    my $pod_from_name = $pod_file_name;
+    $pod_from_name =~ s[\bscript/][bin/];
+    my @make = (
+        NAME => $perl_package_name,
+        VERSION => $module_version,
+#        ABSTRACT_FROM => $pod_from_name,
+        AUTHOR => $author,
+        LICENSE => 'perl',
+        PREREQ_PM => $prereq_pms,
+        BUILD_REQUIRES => $build_requires,
+    );
+    push @make, PM => $make_pms if keys %$make_pms;
+    put_file $root_d->file('Makefile.PL'), qq{
+        use ExtUtils::MakeMaker;
+        @{[Dumper \@make]}
+        WriteMakefile(\@\$VAR1);
+    };
+}
+
+system "cd $root_d && perl Makefile.PL && make manifest && make dist";
+
+my $package_file_name = "$root_d/$dist_package_name-$module_version.tar.gz";
+warn "$package_file_name\n";
+move $package_file_name => $dest_directory;
+
+__END__
+
+=head1 NAME
+
+generate-pm-package - Generating Perl module package
+
+=head1 SYNOPSIS
+
+  $ generate-pm-package [--copy-tree] package-info.pi dest-directory
+
+The generated package will be located at
+C<dest-directory/package.tar.gz>.
+
+=head1 DESCRIPTION
+
+The C<generate-pm-package> script can be used to generate Perl module
+packages using a simple manifest file.
+
+=head1 EXAMPLE PACKAGE INFORMATION FILE
+
+  {
+      main_module_name => 'Test::Test::More',
+      file_names => [qw(
+          lib/Test/Test/More.pm
+          lib/Test/Test/More.pod
+          t/test/test-more.t
+      )],
+      req_modules => {
+          'Test::More' => 0,
+      },
+      t_req_modules => {
+          'Path::Class' => 0,
+      },
+  };
+
+=head1 OPTION
+
+=over 4
+
+=item --copy-tree
+
+If this command-line argument is specified, specified files are copied
+into the destination directory without packaging.
+
+=back
+
+=head1 HISTORY
+
+=over 4
+
+=item 1.0 (2010-08-05)
+
+First version.
+
+=item 1.1 (2010-08-12)
+
+Added C<BUILD_REQUIRES> support.
+
+=item 1.2 (2011-03-14)
+
+Added C<--copy-tree> option.
+
+=back
+
+=head1 AUTHOR
+
+Wakaba (id:wakabatan) <wakabatan@hatena.ne.jp>.
+
+=head1 LICENSE
+
+Copyright 2010-2011 Hatena <http://www.hatena.ne.jp/>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
