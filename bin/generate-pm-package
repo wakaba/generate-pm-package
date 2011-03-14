@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-our $VERSION = '1.1';
+our $VERSION = '1.2';
 use Path::Class;
 use Pod::Select;
 use Pod::Text;
@@ -56,6 +56,7 @@ GetOptions(
 
 my $pack_info_file_name = shift or pod2usage(2);
 my $dest_directory = shift or pod2usage(2);
+my $dest_d = dir($dest_directory)->absolute;
 my $pack_info = do $pack_info_file_name or die $@;
 
 my @dist_file = map { file($_) } @{$pack_info->{file_names} or []};
@@ -91,6 +92,9 @@ if ($pack_info->{main_module_name}) {
     $dist_package_name = $pack_info->{main_script_name};
     $perl_package_name = $dist_package_name;
     my $pl_file_name = 'script/' . $dist_package_name . '.pl';
+    unless (-f $pl_file_name) {
+        $pl_file_name = 'bin/' . $dist_package_name;
+    }
     $pod_file_name = $pl_file_name;
     $make_pms->{"bin/$dist_package_name"} = '$(INST_SCRIPT)/' . $dist_package_name;
     my $pl = file($pl_file_name)->slurp;
@@ -104,13 +108,16 @@ if ($pack_info->{main_module_name}) {
     die "$0: $pack_info_file_name: No |main_module_name| or |main_script_name|\n";
 }
 
-my $root_d = dir($mode eq 'copy_tree' ? $dest_directory : tempdir);
+my $root_d = dir($mode eq 'copy_tree' ? $dest_d->stringify : tempdir);
 
 {
     for my $source_f (@dist_file) {
         my $dest_file_name = $source_f->stringify;
         $dest_file_name =~ s[\bscript/][bin/];
         $dest_file_name =~ s/\.pl$//;
+        unless (-f $source_f->stringify) {
+            $source_f = file($dest_file_name);
+        }
         my $dest_f = $root_d->file($dest_file_name);
         $dest_f->dir->mkpath;
         warn "$dest_f\n";
@@ -192,9 +199,10 @@ $history_text
 
 system "cd $root_d && perl Makefile.PL && make manifest && make dist";
 
+$dest_d->mkpath;
 my $package_file_name = "$root_d/$dist_package_name-$module_version.tar.gz";
-warn "$package_file_name\n";
-move $package_file_name => $dest_directory;
+warn "$package_file_name => $dest_d\n";
+move $package_file_name => $dest_d->stringify;
 
 __END__
 
