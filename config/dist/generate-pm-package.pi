@@ -1,8 +1,8 @@
   {
       main_script_name => 'generate-pm-package',
       file_names => [qw(
-          script/generate-pm-package.pl
-          config/generate-pm-package.pi
+          bin/generate-pm-package
+          config/dist/generate-pm-package.pi
       )],
       req_modules => {
           'Path::Class' => 0,
