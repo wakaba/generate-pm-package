@@ -9,6 +9,7 @@
           'Pod::Select' => 0,
           'Pod::Text' => 0,
           'Pod::Usage' => 0,
+          'File::Basename' => 0,
           'File::Temp' => 0,
           'File::Copy' => 0,
           'Data::Dumper' => 0,
