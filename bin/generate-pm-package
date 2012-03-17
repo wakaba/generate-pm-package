@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-our $VERSION = '1.2';
+our $VERSION = '1.3';
 use File::Basename qw(dirname);
 BEGIN {
   my $libs = dirname(__FILE__) . "/../config/perl/libs.txt";
@@ -18,6 +18,7 @@ use File::Temp qw(tempdir);
 use File::Copy;
 use Getopt::Long;
 use Data::Dumper;
+use JSON::XS;
 
 sub extract_pod_section_as_text ($$) {
     my ($pod, $nameref) = @_;
@@ -58,14 +59,17 @@ sub put_file ($$) {
 }
 
 my $mode = 'dist';
+my $generate_json;
 GetOptions(
     'copy-tree' => sub { $mode = 'copy_tree' },
+    'generate-json' => \$generate_json,
 ) or pod2usage(2);
 
 my $pack_info_file_name = shift or pod2usage(2);
 my $dest_directory = shift or pod2usage(2);
 my $dest_d = dir($dest_directory)->absolute;
 my $pack_info = do $pack_info_file_name or die $@;
+my $json = {};
 
 my @dist_file = map { file($_) } @{$pack_info->{file_names} or []};
 my $req_modules = $pack_info->{req_modules} || {};
@@ -137,8 +141,8 @@ my $root_d = dir($mode eq 'copy_tree' ? $dest_d->stringify : tempdir);
 exit if $mode eq 'copy_tree';
 
 my $authors_text = extract_pod_section_as_text($pod, ['AUTHORS', 'AUTHOR']);
+my $desc_text = extract_pod_section_as_text($pod, ['DESCRIPTION']);
 {
-    my $desc_text = extract_pod_section_as_text($pod, ['DESCRIPTION']);
     my $authors_heading = ($authors_text =~ tr/</</) > 1 ? 'AUTHORS' : 'AUTHOR';
     my $license_text = extract_pod_section_as_text($pod, ['LICENSE']);
     
@@ -212,6 +216,19 @@ my $package_file_name = "$root_d/$dist_package_name-$module_version.tar.gz";
 warn "$package_file_name => $dest_d\n";
 move $package_file_name => $dest_d->stringify;
 
+if ($generate_json) {
+  my $json_f = $dest_d->file("$dist_package_name-$module_version.json");
+
+  $json->{name} = $perl_package_name;
+  $json->{dist_name} = $dist_package_name;
+  $json->{version} = $module_version;
+  $json->{desc} = $desc_text;
+  $json->{urls} = $pack_info->{urls} || {};
+
+  warn "$json_f\n";
+  $json_f->openw->print(JSON::XS->new->utf8->pretty->canonical->encode($json));
+}
+
 __END__
 
 =head1 NAME
@@ -220,7 +237,7 @@ generate-pm-package - Generating Perl module package
 
 =head1 SYNOPSIS
 
-  $ generate-pm-package [--copy-tree] package-info.pi dest-directory
+  $ generate-pm-package [OPTIONS] package-info.pi dest-directory
 
 The generated package will be located at
 C<dest-directory/package.tar.gz>.
@@ -247,7 +264,7 @@ packages using a simple manifest file.
       },
   };
 
-=head1 OPTION
+=head1 OPTIONS
 
 =over 4
 
@@ -255,6 +272,11 @@ packages using a simple manifest file.
 
 If this command-line argument is specified, specified files are copied
 into the destination directory without packaging.
+
+=item --generate-json
+
+If this command-line argument is specified, a JSON file containing
+package information is generated into the destination directory.
 
 =back
 
@@ -274,6 +296,10 @@ Added C<BUILD_REQUIRES> support.
 
 Added C<--copy-tree> option.
 
+=item 1.3 (2012-03-17)
+
+Added C<--generate-json> option.
+
 =back
 
 =head1 AUTHOR
@@ -283,6 +309,8 @@ Wakaba (id:wakabatan) <wakabatan@hatena.ne.jp>.
 =head1 LICENSE
 
 Copyright 2010-2011 Hatena <http://www.hatena.ne.jp/>.
+
+Copyright 2012 Wakaba <w@suika.fam.cx>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

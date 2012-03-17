@@ -14,4 +14,9 @@
           'File::Copy' => 0,
           'Data::Dumper' => 0,
       },
+      urls => {
+          git => {
+              GitHub => q<https://github.com/wakaba/generate-pm-package>,
+          },
+      },
   };

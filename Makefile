@@ -24,6 +24,6 @@ dist: dist-generate-pm-package
 
 dist-generate-pm-package:: \
 dist-%: config/dist/%.pi
-	$(GENERATEPM_) $< dist
+	$(GENERATEPM_) $< dist --generate-json
 
 ## License: Public Domain.
