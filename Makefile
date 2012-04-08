@@ -26,4 +26,15 @@ dist-generate-pm-package:: \
 dist-%: config/dist/%.pi
 	$(GENERATEPM_) $< dist --generate-json
 
+dist-wakaba-packages: local/wakaba-packages dist
+	cp dist/*.json local/wakaba-packages/data/perl/
+	cp dist/*.tar.gz local/wakaba-packages/perl/
+	cd local/wakaba-packages && $(MAKE) all
+
+local/wakaba-packages: always
+	git clone "git@github.com:wakaba/packages.git" $@ || (cd $@ && git pull)
+	cd $@ && git submodule update --init
+
+always:
+
 ## License: Public Domain.
