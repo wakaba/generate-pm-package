@@ -2,5 +2,4 @@
 .carton/
 local/
 Makefile.setupenv
-config/perl/modules.txt
 config/perl/libs.txt
