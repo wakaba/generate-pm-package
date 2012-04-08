@@ -1,0 +1,8 @@
+File::Copy
+Pod::Usage
+Data::Dumper
+Pod::Text
+File::Temp
+Path::Class
+File::Basename
+Pod::Select
