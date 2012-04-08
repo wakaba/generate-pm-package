@@ -95,7 +95,7 @@ if ($pack_info->{main_module_name}) {
     $pod_file_name = $pm_file_name unless -f $pod_file_name;
     my $pm = file($pm_file_name)->slurp;
     $pod = file($pod_file_name)->slurp;
-    if ($pm =~ /(?:^|\x0A)\s*our\s*\$VERSION\s*=\s*([^;]*;)/) {
+    if ($pm =~ /(?:^|\x0A)\s*(?:our\s*|)\$VERSION\s*=\s*([^;]*;)/) {
         $module_version = eval $1 or die $@;
     } else {
         die "$0: $pm_file_name: No \$VERSION\n";
@@ -111,7 +111,7 @@ if ($pack_info->{main_module_name}) {
     $make_pms->{"bin/$dist_package_name"} = '$(INST_SCRIPT)/' . $dist_package_name;
     my $pl = file($pl_file_name)->slurp;
     $pod = file($pod_file_name)->slurp;
-    if ($pl =~ /(?:^|\x0A)\s*our\s*\$VERSION\s*=\s*([^;]*;)/) {
+    if ($pl =~ /(?:^|\x0A)\s*(?:our\s*|)\$VERSION\s*=\s*([^;]*;)/) {
         $module_version = eval $1 or die $@;
     } else {
         die "$0: $pl_file_name: No \$VERSION\n";
