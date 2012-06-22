@@ -1,0 +1,7 @@
+File::ShareDir::Install~0.04
+Path::Class~0.26
+inc::latest~0.40
+Pod::Cache~1.51
+Pod::Man~2.26
+Data::Dumper~2.131
+ExtUtils::ParseXS~3.15
