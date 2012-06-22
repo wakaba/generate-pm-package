@@ -1,7 +1,9 @@
 File::Copy
+Getopt::Long
 Pod::Usage
-Data::Dumper
 Pod::Text
+Data::Dumper
+JSON::XS
 File::Temp
 Path::Class
 File::Basename

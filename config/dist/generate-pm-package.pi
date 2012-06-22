@@ -5,14 +5,16 @@
           config/dist/generate-pm-package.pi
       )],
       req_modules => {
+          'Data::Dumper' => 0,
+          'Getopt::Long' => 0,
+          'File::Basename' => 0,
+          'File::Copy' => 0,
+          'File::Temp' => 0,
+          'JSON::XS' => 0,
           'Path::Class' => 0,
           'Pod::Select' => 0,
           'Pod::Text' => 0,
           'Pod::Usage' => 0,
-          'File::Basename' => 0,
-          'File::Temp' => 0,
-          'File::Copy' => 0,
-          'Data::Dumper' => 0,
       },
       urls => {
           git => {
