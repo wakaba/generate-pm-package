@@ -8,3 +8,4 @@ File::Temp
 Path::Class
 File::Basename
 Pod::Select
+Exporter::Lite
