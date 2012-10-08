@@ -4,7 +4,9 @@ GIT = git
 GENERATEPM = bin/generate-pm-package
 GENERATEPM_ = $(PERL) $(GENERATEPM)
 
-all: config/perl/modules.txt pmb-install
+all:
+
+## ------ Environment ------
 
 config/perl/modules.txt: $(wildcard config/dist/*.pi)
 	mkdir -p config/perl
@@ -12,15 +14,17 @@ config/perl/modules.txt: $(wildcard config/dist/*.pi)
 
 Makefile-setupenv: Makefile.setupenv
 	$(MAKE) --makefile Makefile.setupenv setupenv-update \
-	    SETUPENV_MIN_REVISION=20120313
+	    SETUPENV_MIN_REVISION=20121008
 
 Makefile.setupenv:
 	$(WGET) -O $@ https://raw.github.com/wakaba/perl-setupenv/master/Makefile.setupenv
 
-pmb-update pmb-install \
-lperl local-perl perl-version perl-exec \
-: %: Makefile-setupenv config/perl/modules.txt
+pmbp-update pmbp-install: %: Makefile-setupenv config/perl/modules.txt
 	$(MAKE) --makefile Makefile.setupenv $@
+
+deps:  config/perl/modules.txt pmbp-install
+
+## ------ Packaging ------
 
 dist: dist-generate-pm-package
 

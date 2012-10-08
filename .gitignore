@@ -3,3 +3,11 @@
 local/
 Makefile.setupenv
 config/perl/libs.txt
+/local/
+/perl
+/prove
+/plackup
+/Makefile.setupenv
+/cin
+/config/perl/libs.txt
+/deps
